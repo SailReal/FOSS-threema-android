@@ -38,7 +38,7 @@ import android.text.format.DateUtils;
 import android.util.SparseIntArray;
 import android.widget.Toast;
 
-import com.google.android.gms.common.util.ArrayUtils;
+import com.google.common.primitives.Bytes;
 import com.neilalexander.jnacl.NaCl;
 
 import org.apache.commons.io.IOUtils;
@@ -3599,7 +3599,7 @@ public class MessageServiceImpl implements MessageService {
 						}
 						if (imageByteArray != null) {
 							fileDataModel.setFileSize(imageByteArray.length);
-							return ArrayUtils.concatByteArrays(new byte[NaCl.BOXOVERHEAD], imageByteArray);
+							return Bytes.concat(new byte[NaCl.BOXOVERHEAD], imageByteArray);
 						}
 					}
 				} catch (Exception e) {
@@ -3620,7 +3620,7 @@ public class MessageServiceImpl implements MessageService {
 								bitmap,
 								mediaItem.getExifRotation(),
 								mediaItem.getExifFlip()), mediaItem.getRotation(), mediaItem.getFlip());
-							return ArrayUtils.concatByteArrays(new byte[NaCl.BOXOVERHEAD], BitmapUtil.getJpegByteArray(bitmap, mediaItem.getRotation(), mediaItem.getFlip()));
+							return Bytes.concat(new byte[NaCl.BOXOVERHEAD], BitmapUtil.getJpegByteArray(bitmap, mediaItem.getRotation(), mediaItem.getFlip()));
 						}
 					}
 				} catch (Exception e) {

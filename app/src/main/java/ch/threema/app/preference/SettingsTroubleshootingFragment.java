@@ -169,7 +169,7 @@ public class SettingsTroubleshootingFragment extends ThreemaPreferenceFragment i
 			}
 		};
 
-		isPlayServicesInstalled = ConfigUtils.isPlayServicesInstalled(getContext());
+		isPlayServicesInstalled = false;
 
 		pollingTwoStatePreference = (TwoStatePreference) findPreference(getResources().getString(R.string.preferences__polling_switch));
 		pollingTwoStatePreference.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
@@ -233,11 +233,6 @@ public class SettingsTroubleshootingFragment extends ThreemaPreferenceFragment i
 		resetPushPreference.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
 			@Override
 			public boolean onPreferenceClick(Preference preference) {
-				if (ConfigUtils.isPlayServicesInstalled(getActivity())) {
-					PushUtil.clearPushTokenSentDate(getActivity());
-					PushUtil.sendPushTokenToServer(getContext(), false, true);
-					GenericProgressDialog.newInstance(R.string.push_reset_title, R.string.please_wait).showNow(getFragmentManager(), DIALOG_TAG_GCM_REGISTER);
-				}
 				return true;
 			}
 		});

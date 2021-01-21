@@ -231,10 +231,6 @@ public class NotificationServiceImpl implements NotificationService {
 		if (ConfigUtils.isWorkBuild()) {
 			notificationManager.deleteNotificationChannel(NOTIFICATION_CHANNEL_WORK_SYNC);
 		}
-		if (ConfigUtils.isPlayServicesInstalled(context)) {
-			notificationManager.deleteNotificationChannel(NOTIFICATION_CHANNEL_IMAGE_LABELING);
-		}
-
 		notificationManager.deleteNotificationChannelGroup(NOTIFICATION_CHANNELGROUP_CHAT);
 		notificationManager.deleteNotificationChannelGroup(NOTIFICATION_CHANNELGROUP_CHAT_UPDATE);
 		notificationManager.deleteNotificationChannelGroup(NOTIFICATION_CHANNELGROUP_VOIP);
@@ -350,22 +346,6 @@ public class NotificationServiceImpl implements NotificationService {
 		notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
 		notificationChannel.setSound(null,null);
 		notificationManager.createNotificationChannel(notificationChannel);
-
-		// image labeling progress notification
-		if (ConfigUtils.isPlayServicesInstalled(context)) {
-			notificationChannel = new NotificationChannel(
-				NOTIFICATION_CHANNEL_IMAGE_LABELING,
-				context.getString(R.string.notification_channel_image_labeling),
-				NotificationManager.IMPORTANCE_LOW
-			);
-			notificationChannel.setDescription(context.getString(R.string.notification_channel_image_labeling_desc));
-			notificationChannel.enableLights(false);
-			notificationChannel.enableVibration(false);
-			notificationChannel.setShowBadge(false);
-			notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
-			notificationChannel.setSound(null, null);
-			notificationManager.createNotificationChannel(notificationChannel);
-		}
 	}
 
 	@Override
@@ -1878,20 +1858,7 @@ public class NotificationServiceImpl implements NotificationService {
 	 */
 	@Override
 	public @Nullable NotificationCompat.Builder createImageLabelingProgressNotification() {
-		if (!ConfigUtils.isPlayServicesInstalled(context)) {
-			// Requires Google Play Service
-			logger.warn("Cannot create image labeling progress notification: Google play services not installed");
-			return null;
-		}
-		return new NotificationBuilderWrapper(context, NOTIFICATION_CHANNEL_IMAGE_LABELING, null)
-				.setSound(null)
-				.setSmallIcon(R.drawable.ic_image_labeling)
-				.setContentTitle(this.context.getString(R.string.notification_image_labeling_desc))
-				.setProgress(0, 100, true) // Initially indeterminate until updated
-				.setPriority(NotificationManagerCompat.IMPORTANCE_LOW)
-				.setAutoCancel(true)
-				.setLocalOnly(true)
-				.setOnlyAlertOnce(true);
+		return null;
 	}
 
 	/**

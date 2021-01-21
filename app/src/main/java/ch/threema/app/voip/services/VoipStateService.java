@@ -41,23 +41,11 @@ import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
 
-import com.google.android.gms.common.data.FreezableUtils;
-import com.google.android.gms.tasks.Tasks;
-import com.google.android.gms.wearable.DataClient;
-import com.google.android.gms.wearable.DataEvent;
-import com.google.android.gms.wearable.DataEventBuffer;
-import com.google.android.gms.wearable.DataMapItem;
-import com.google.android.gms.wearable.Node;
-import com.google.android.gms.wearable.PutDataMapRequest;
-import com.google.android.gms.wearable.PutDataRequest;
-import com.google.android.gms.wearable.Wearable;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.webrtc.IceCandidate;
 import org.webrtc.SessionDescription;
 
-import java.io.ByteArrayOutputStream;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
@@ -65,7 +53,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 import androidx.annotation.AnyThread;
 import androidx.annotation.IntDef;
@@ -128,7 +115,7 @@ import static ch.threema.app.voip.services.VoipCallService.EXTRA_IS_INITIATOR;
 
 /**
  * The service keeping track of VoIP call state.
- *
+ * <p>
  * This class is (intended to be) thread safe.
  */
 @AnyThread
@@ -143,7 +130,9 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 	// component type for wearable
 	@Retention(RetentionPolicy.SOURCE)
 	@IntDef({TYPE_NOTIFICATION, TYPE_ACTIVITY})
-	public @interface Component {}
+	public @interface Component {
+	}
+
 	public static final int TYPE_NOTIFICATION = 0;
 	public static final int TYPE_ACTIVITY = 1;
 
@@ -182,14 +171,18 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 	// Notifications
 	private final List<String> callNotificationTags = new ArrayList<>();
 	private MediaPlayerStateWrapper ringtonePlayer;
-	private @NonNull CompletableFuture<Void> ringtoneAudioFocusAbandoned = CompletableFuture.completedFuture(null);
+	private @NonNull
+	CompletableFuture<Void> ringtoneAudioFocusAbandoned = CompletableFuture.completedFuture(null);
 
 	// Video
-	private @Nullable VideoContext videoContext;
-	private @NonNull CompletableFuture<VideoContext> videoContextFuture = new CompletableFuture<>();
+	private @Nullable
+	VideoContext videoContext;
+	private @NonNull
+	CompletableFuture<VideoContext> videoContextFuture = new CompletableFuture<>();
 
 	// Pending intents
-	private @Nullable PendingIntent acceptIntent;
+	private @Nullable
+	PendingIntent acceptIntent;
 
 	// Connection status
 	private boolean connectionAcquired = false;
@@ -197,45 +190,6 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 	// Timeouts
 	private static final int RINGING_TIMEOUT_SECONDS = 60;
 	private static final int VOIP_CONNECTION_LINGER = 1000 * 5;
-
-	private DataClient.OnDataChangedListener wearableListener = new DataClient.OnDataChangedListener() {
-		@Override
-		public void onDataChanged(@NonNull DataEventBuffer eventsBuffer) {
-			logger.debug("onDataChanged Listener VoipState: " + eventsBuffer);
-			final List<DataEvent> events = FreezableUtils.freezeIterable(eventsBuffer);
-			for (DataEvent event : events) {
-				if (event.getType() == DataEvent.TYPE_CHANGED) {
-					String path = event.getDataItem().getUri().getPath();
-					logger.debug("received datachange path " + path);
-					if ("/accept-call".equals(path)) {
-						logger.debug("accept call block entered");
-						DataMapItem dataMapItem = DataMapItem.fromDataItem(event.getDataItem());
-						long callId = dataMapItem.getDataMap().getLong(EXTRA_CALL_ID, 0L);
-						String identity = dataMapItem.getDataMap().getString(EXTRA_CONTACT_IDENTITY);
-						final Intent intent = createAcceptIntent(callId, identity);
-						appContext.startService(intent);
-						//Listen again for hang up
-						Wearable.getDataClient(appContext).addListener(wearableListener);
-
-					} if("/reject-call".equals(path)) {
-						logger.debug("reject call block entered");
-						DataMapItem dataMapItem = DataMapItem.fromDataItem(event.getDataItem());
-						long callId = dataMapItem.getDataMap().getLong(EXTRA_CALL_ID, 0L);
-						String identity = dataMapItem.getDataMap().getString(EXTRA_CONTACT_IDENTITY);
-						final Intent rejectIntent = createRejectIntent(
-							callId,
-							identity,
-							VoipCallAnswerData.RejectReason.REJECTED
-						);
-						CallRejectService.enqueueWork(appContext, rejectIntent);
-					} if ("/disconnect-call".equals(path)){
-						logger.debug("disconnect call block entered");
-						VoipUtil.sendVoipCommand(appContext, VoipCallService.class, VoipCallService.ACTION_HANGUP);
-					}
-				}
-			}
-		}
-	};
 
 	public VoipStateService(ContactService contactService,
 	                        RingtoneService ringtoneService,
@@ -261,9 +215,8 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Get the current call state as an immutable snapshot.
-	 *
-	 * Note: Does not require locking, since the {@link CallState}
-	 * class is thread safe.
+	 * <p>
+	 * Note: Does not require locking, since the {@link CallState} class is thread safe.
 	 */
 	public CallStateSnapshot getCallState() {
 		return this.callState.getStateSnapshot();
@@ -271,9 +224,9 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Called for every state transition.
-	 *
-	 * Note: Most reactions to state changes should be done in the `setStateXXX` methods.
-	 *       This method should only be used for actions that apply to multiple state transitions.
+	 * <p>
+	 * Note: Most reactions to state changes should be done in the `setStateXXX` methods. This
+	 * method should only be used for actions that apply to multiple state transitions.
 	 *
 	 * @param oldState The previous call state.
 	 * @param newState The new call state.
@@ -437,9 +390,9 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Return whether the VoIP service is currently initialized as initiator or responder.
-	 *
-	 * Note: This is only initialized once a call is being set up. That means that the flag
-	 * will be `null` when a call is ringing, but hasn't been accepted yet.
+	 * <p>
+	 * Note: This is only initialized once a call is being set up. That means that the flag will be
+	 * `null` when a call is ringing, but hasn't been accepted yet.
 	 */
 	@Nullable
 	public Boolean isInitiator() {
@@ -500,7 +453,8 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 	/**
 	 * Return the {@link VoipCallOfferData} associated with this Call ID (if any).
 	 */
-	public @Nullable VoipCallOfferData getCallOffer(long callId) {
+	public @Nullable
+	VoipCallOfferData getCallOffer(long callId) {
 		return this.offerMap.get(callId);
 	}
 
@@ -508,6 +462,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Handle an incoming VoipCallOfferMessage.
+	 *
 	 * @return true if messages was successfully processed
 	 */
 	@WorkerThread
@@ -586,17 +541,17 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 		final PendingIntent accept;
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 			accept = PendingIntent.getForegroundService(
-					this.appContext,
-					IdUtil.getTempId(contact),
-					answerIntent,
-					PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_ONE_SHOT
+				this.appContext,
+				IdUtil.getTempId(contact),
+				answerIntent,
+				PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_ONE_SHOT
 			);
 		} else {
 			accept = PendingIntent.getService(
-					this.appContext,
-					IdUtil.getTempId(contact),
-					answerIntent,
-					PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_ONE_SHOT
+				this.appContext,
+				IdUtil.getTempId(contact),
+				answerIntent,
+				PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_ONE_SHOT
 			);
 		}
 		this.acceptIntent = accept;
@@ -608,10 +563,10 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 			VoipCallAnswerData.RejectReason.REJECTED
 		);
 		final PendingIntent reject = PendingIntent.getBroadcast(
-				this.appContext,
-				-IdUtil.getTempId(contact),
-				rejectIntent,
-				PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_ONE_SHOT
+			this.appContext,
+			-IdUtil.getTempId(contact),
+			rejectIntent,
+			PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_ONE_SHOT
 		);
 
 		final ContactMessageReceiver messageReceiver = this.contactService.createReceiver(contact);
@@ -688,6 +643,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Handle an incoming VoipCallAnswerMessage.
+	 *
 	 * @return true if messages was successfully processed
 	 */
 	@WorkerThread
@@ -706,8 +662,8 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 			// Ensure that action was set
 			if (callAnswerData.getAction() == null) {
-			    logger.error("Received answer without action, ignoring");
-			    return true;
+				logger.error("Received answer without action, ignoring");
+				return true;
 			}
 
 			switch (callAnswerData.getAction()) {
@@ -749,6 +705,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Handle an incoming VoipICECandidatesMessage.
+	 *
 	 * @return true if messages was successfully processed
 	 */
 	@WorkerThread
@@ -808,6 +765,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Handle incoming Call Ringing message
+	 *
 	 * @return true if message was successfully processed
 	 */
 	@WorkerThread
@@ -848,8 +806,8 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 	}
 
 	/**
-	 * Handle remote call hangup messages.
-	 * A hangup can happen either before or during a call.
+	 * Handle remote call hangup messages. A hangup can happen either before or during a call.
+	 *
 	 * @return true if message was successfully processed
 	 */
 	@WorkerThread
@@ -913,9 +871,8 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Return whether the specified call ID belongs to the current call.
-	 *
-	 * NOTE: Do not use this method to validate the call ID in an offer,
-	 *       that doesn't make sense :)
+	 * <p>
+	 * NOTE: Do not use this method to validate the call ID in an offer, that doesn't make sense :)
 	 */
 	@SuppressWarnings("BooleanMethodIsAlwaysInverted")
 	private synchronized boolean isCallIdValid(long callId) {
@@ -941,9 +898,10 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 	 * Send a call offer to the specified contact.
 	 *
 	 * @param videoCall Whether to enable video calls in this offer.
-	 * @throws ThreemaException if enqueuing the message fails.
-	 * @throws IllegalArgumentException if the session description is not valid for an offer message.
-	 * @throws IllegalStateException if the call state is not INITIALIZING
+	 * @throws ThreemaException         if enqueuing the message fails.
+	 * @throws IllegalArgumentException if the session description is not valid for an offer
+	 *                                  message.
+	 * @throws IllegalStateException    if the call state is not INITIALIZING
 	 */
 	public synchronized void sendCallOfferMessage(
 		@NonNull ContactModel receiver,
@@ -958,7 +916,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 			case ANSWER:
 			case PRANSWER:
 				throw new IllegalArgumentException("A " + sessionDescription.type +
-						" session description is not valid for an offer message");
+					" session description is not valid for an offer message");
 		}
 
 		final CallStateSnapshot state = this.callState.getStateSnapshot();
@@ -989,15 +947,17 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 			callOfferData.getFeatures()
 		);
 		this.messageQueue.enqueue(voipCallOfferMessage);
-		this.messageService.sendProfilePicture(new MessageReceiver[] {contactService.createReceiver(receiver)});
+		this.messageService.sendProfilePicture(new MessageReceiver[]{contactService.createReceiver(receiver)});
 	}
 
 	//region Send call messages
 
 	/**
 	 * Accept a call from the specified contact.
-	 * @throws ThreemaException if enqueuing the message fails.
-	 * @throws IllegalArgumentException if the session description is not valid for an offer message.
+	 *
+	 * @throws ThreemaException         if enqueuing the message fails.
+	 * @throws IllegalArgumentException if the session description is not valid for an offer
+	 *                                  message.
 	 */
 	public void sendAcceptCallAnswerMessage(
 		@NonNull ContactModel receiver,
@@ -1017,6 +977,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Reject a call from the specified contact.
+	 *
 	 * @throws ThreemaException if enqueuing the message fails.
 	 */
 	public void sendRejectCallAnswerMessage(
@@ -1030,6 +991,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Reject a call from the specified contact.
+	 *
 	 * @throws ThreemaException if enqueuing the message fails.
 	 */
 	public void sendRejectCallAnswerMessage(
@@ -1061,8 +1023,8 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 	/**
 	 * Send a call answer method.
 	 *
-	 * @param videoCall If set to TRUE, then the `video` call feature
-	 *     will be sent along in the answer.
+	 * @param videoCall If set to TRUE, then the `video` call feature will be sent along in the
+	 *                  answer.
 	 * @throws ThreemaException
 	 * @throws IllegalArgumentException
 	 * @throws IllegalStateException
@@ -1071,8 +1033,8 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 		@NonNull ContactModel receiver,
 		final long callId,
 		@Nullable SessionDescription sessionDescription,
-	    byte action,
-	    @Nullable Byte rejectReason,
+		byte action,
+		@Nullable Byte rejectReason,
 		@Nullable Boolean videoCall
 	) throws ThreemaException, IllegalArgumentException, IllegalStateException {
 		logger.info("VoipStateService sendCallAnswerMessage");
@@ -1088,7 +1050,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 					break;
 				case OFFER:
 					throw new IllegalArgumentException("A " + sessionDescription.type +
-							" session description is not valid for an answer message");
+						" session description is not valid for an answer message");
 			}
 
 			callAnswerData.setAnswerData(
@@ -1118,12 +1080,13 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 			callAnswerData.getFeatures()
 		);
 		messageQueue.enqueue(voipCallAnswerMessage);
-		this.messageService.sendProfilePicture(new MessageReceiver[] {contactService.createReceiver(receiver)});
+		this.messageService.sendProfilePicture(new MessageReceiver[]{contactService.createReceiver(receiver)});
 
 	}
 
 	/**
 	 * Send ice candidates to the specified contact.
+	 *
 	 * @throws ThreemaException if enqueuing the message fails.
 	 */
 	synchronized void sendICECandidatesMessage(
@@ -1227,6 +1190,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Accept an incoming call.
+	 *
 	 * @return true if call was accepted, false otherwise (e.g. if no incoming call was active)
 	 */
 	public boolean acceptIncomingCall() {
@@ -1282,10 +1246,6 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 				logger.warn("No call notification found for {}", identity);
 			}
 		}
-		if (ConfigUtils.isPlayServicesInstalled(appContext)){
-			cancelOnWearable(TYPE_NOTIFICATION);
-			cancelOnWearable(TYPE_ACTIVITY);
-		}
 	}
 
 	/**
@@ -1299,51 +1259,15 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 			}
 			this.callNotificationTags.clear();
 		}
-		if (ConfigUtils.isPlayServicesInstalled(appContext)){
-			cancelOnWearable(TYPE_NOTIFICATION);
-		}
-	}
-
-	public void cancelOnWearable(@Component int component){
-		RuntimeUtil.runInAsyncTask(() -> {
-			try {
-				final List<Node> nodes = Tasks.await(
-					Wearable.getNodeClient(appContext).getConnectedNodes()
-				);
-				if (nodes != null) {
-					for (Node node : nodes) {
-						if (node.getId() != null) {
-							switch (component) {
-								case TYPE_NOTIFICATION:
-									Wearable.getMessageClient(appContext)
-										.sendMessage(node.getId(), "/cancel-notification", null);
-									break;
-								case TYPE_ACTIVITY:
-									Wearable.getMessageClient(appContext)
-										.sendMessage(node.getId(), "/cancel-activity", null);
-									break;
-								default:
-									break;
-							}
-						}
-					}
-				}
-			} catch (ExecutionException e) {
-				logger.info("cancelOnWearable: ExecutionException while trying to connect to wearable: {}", e.getMessage());
-			} catch (InterruptedException e) {
-				logger.info("cancelOnWearable: Interrupted while waiting for wearable client");
-				// Restore interrupted state...
-				Thread.currentThread().interrupt();
-			}
-		});
 	}
 
 	/**
 	 * Return the current call duration in seconds.
-	 *
+	 * <p>
 	 * Return null if the call state is not CALLING.
 	 */
-	@Nullable Integer getCallDuration() {
+	@Nullable
+	Integer getCallDuration() {
 		final Long start = this.callStartTimestamp;
 		if (start == null) {
 			return null;
@@ -1380,11 +1304,11 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 			// Content
 			nbuilder.setContentTitle(appContext.getString(R.string.voip_notification_title))
-					.setContentText(appContext.getString(R.string.voip_notification_text, NameUtil.getDisplayNameOrNickname(contact, true)))
-					.setOngoing(true)
-					.setWhen(timestamp)
-					.setAutoCancel(false)
-					.setShowWhen(true);
+				.setContentText(appContext.getString(R.string.voip_notification_text, NameUtil.getDisplayNameOrNickname(contact, true)))
+				.setOngoing(true)
+				.setWhen(timestamp)
+				.setAutoCancel(false)
+				.setShowWhen(true);
 
 			// We want a full screen notification
 			// Set up the main intent to send the user to the incoming call screen
@@ -1393,22 +1317,22 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 			// Icons and colors
 			nbuilder.setLargeIcon(avatar)
-					.setSmallIcon(R.drawable.ic_phone_locked_white_24dp)
-					.setColor(this.appContext.getResources().getColor(R.color.accent_light));
+				.setSmallIcon(R.drawable.ic_phone_locked_white_24dp)
+				.setColor(this.appContext.getResources().getColor(R.color.accent_light));
 
 			// Alerting
 			nbuilder.setPriority(NotificationCompat.PRIORITY_MAX)
-					.setCategory(NotificationCompat.CATEGORY_CALL);
+				.setCategory(NotificationCompat.CATEGORY_CALL);
 
 			// Privacy
 			nbuilder.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-					// TODO
-					.setPublicVersion(new NotificationCompat.Builder(appContext, ConfigUtils.supportsNotificationChannels() ? NOTIFICATION_CHANNEL_CALL : null)
-							.setContentTitle(appContext.getString(R.string.voip_notification_title))
-							.setContentText(appContext.getString(R.string.notification_hidden_text))
-							.setSmallIcon(R.drawable.ic_phone_locked_white_24dp)
-							.setColor(appContext.getResources().getColor(R.color.accent_light))
-							.build());
+				// TODO
+				.setPublicVersion(new NotificationCompat.Builder(appContext, ConfigUtils.supportsNotificationChannels() ? NOTIFICATION_CHANNEL_CALL : null)
+					.setContentTitle(appContext.getString(R.string.voip_notification_title))
+					.setContentText(appContext.getString(R.string.notification_hidden_text))
+					.setSmallIcon(R.drawable.ic_phone_locked_white_24dp)
+					.setColor(appContext.getResources().getColor(R.color.accent_light))
+					.build());
 
 			// Add identity to notification for DND priority override
 			String contactLookupUri = contactService.getAndroidContactLookupUriString(contact);
@@ -1430,7 +1354,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 			acceptString.setSpan(new ForegroundColorSpan(Color.GREEN), 0, acceptString.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
 			nbuilder.addAction(R.drawable.ic_call_end_grey600_24dp, rejectString, reject)
-					.addAction(R.drawable.ic_call_grey600_24dp, acceptString, accept != null ? accept : inCallPendingIntent);
+				.addAction(R.drawable.ic_call_grey600_24dp, acceptString, accept != null ? accept : inCallPendingIntent);
 
 			// Build notification
 			final Notification notification = nbuilder.build();
@@ -1450,11 +1374,6 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 			} catch (PendingIntent.CanceledException e) {
 				logger.error("Could not send inCallPendingIntent", e);
 			}
-		}
-
-		// WEARABLE
-		if (ConfigUtils.isPlayServicesInstalled(appContext)){
-			this.showWearableNotification(contact, callId, avatar);
 		}
 	}
 
@@ -1525,37 +1444,6 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 		}
 	}
 
-	/*
-	 *  Send information to the companion app on the wearable device
-	 */
-	@WorkerThread
-	private void showWearableNotification(
-		@NonNull ContactModel contact,
-		long callId,
-		@Nullable Bitmap avatar
-	) {
-		final DataClient dataClient = Wearable.getDataClient(appContext);
-
-		// Add data to the request
-		final PutDataMapRequest putDataMapRequest = PutDataMapRequest.create("/incoming-call");
-		putDataMapRequest.getDataMap().putLong(EXTRA_CALL_ID, callId);
-		putDataMapRequest.getDataMap().putString(EXTRA_CONTACT_IDENTITY, contact.getIdentity());
-		logger.debug("sending the following contactIdentity from VoipState to wearable " + contact.getIdentity());
-		putDataMapRequest.getDataMap().putString("CONTACT_NAME", NameUtil.getDisplayNameOrNickname(contact, true));
-		putDataMapRequest.getDataMap().putLong("CALL_TIME", System.currentTimeMillis());
-		if (avatar != null) {
-			final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-			avatar.compress(Bitmap.CompressFormat.PNG, 100, buffer);
-			putDataMapRequest.getDataMap().putByteArray("CONTACT_AVATAR", buffer.toByteArray());
-		}
-
-		final PutDataRequest request = putDataMapRequest.asPutDataRequest();
-		request.setUrgent();
-
-		dataClient.addListener(wearableListener);
-		dataClient.putDataItem(request);
-	}
-
 	private PendingIntent createLaunchPendingIntent(
 		@NonNull String identity,
 		@Nullable VoipCallOfferMessage msg
@@ -1563,7 +1451,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 		final Intent intent = new Intent(Intent.ACTION_MAIN, null);
 		intent.setClass(appContext, CallActivity.class);
 		intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-		intent.setData((Uri.parse("foobar://"+ SystemClock.elapsedRealtime())));
+		intent.setData((Uri.parse("foobar://" + SystemClock.elapsedRealtime())));
 		intent.putExtra(EXTRA_ACTIVITY_MODE, CallActivity.MODE_INCOMING_CALL);
 		intent.putExtra(EXTRA_CONTACT_IDENTITY, identity);
 		intent.putExtra(EXTRA_IS_INITIATOR, false);
@@ -1599,9 +1487,9 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Create a new video context.
-	 *
+	 * <p>
 	 * Throws an `IllegalStateException` if a video context already exists.
- 	 */
+	 */
 	void createVideoContext() throws IllegalStateException {
 		logger.trace("createVideoContext");
 		if (this.videoContext != null) {
@@ -1629,7 +1517,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
 	/**
 	 * Release resources associated with the video context instance.
-	 *
+	 * <p>
 	 * It's safe to call this method multiple times.
 	 */
 	void releaseVideoContext() {

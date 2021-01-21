@@ -617,9 +617,6 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
 		// if the intent creation was initiated from the phone we additionally cancel a potentially already opened activity on the watch
 		final boolean cancelActivityOnWearable = intent.getBooleanExtra(EXTRA_CANCEL_WEAR, false);
-		if (cancelActivityOnWearable && ConfigUtils.isPlayServicesInstalled(getAppContext())) {
-			voipStateService.cancelOnWearable(VoipStateService.TYPE_ACTIVITY);
-		}
 
 		final VoipICECandidatesData candidatesData =
 			(VoipICECandidatesData) intent.getSerializableExtra(EXTRA_CANDIDATES);
@@ -790,9 +787,6 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 					return null;
 				}
 			}.execute(new Pair<>(contact, callState.getCallId()));
-		}
-		if (ConfigUtils.isPlayServicesInstalled(getAppContext())){
-			voipStateService.cancelOnWearable(VoipStateService.TYPE_ACTIVITY);
 		}
 		disconnect();
 	}
@@ -1463,11 +1457,6 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 					}
 				});
 			}
-			this.voipStateService.cancelOnWearable(VoipStateService.TYPE_ACTIVITY);
-		}
-
-		if (ConfigUtils.isPlayServicesInstalled(getAppContext())){
-			voipStateService.cancelOnWearable(VoipStateService.TYPE_ACTIVITY);
 		}
 
 		this.preDisconnect(callId);
@@ -1645,9 +1634,6 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 	@AnyThread
 	private synchronized void abortCall(@StringRes final int userMessage, @Nullable final String internalMessage, boolean showErrorNotification) {
 		this.abortCall(userMessage, internalMessage, null, showErrorNotification);
-		if (ConfigUtils.isPlayServicesInstalled(getAppContext())){
-			voipStateService.cancelOnWearable(VoipStateService.TYPE_ACTIVITY);
-		}
 	}
 
 	//endregion

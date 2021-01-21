@@ -926,15 +926,6 @@ public class HomeActivity extends ThreemaAppCompatActivity implements
 		// call onPrepareOptionsMenu
 		this.invalidateOptionsMenu();
 
-		if (savedInstanceState == null) {
-			if (!ConfigUtils.isPlayServicesInstalled(this)) {
-				enablePolling(serviceManager);
-				if (!ConfigUtils.isBlackBerry() && !ConfigUtils.isAmazonDevice() && !ConfigUtils.isWorkBuild()) {
-					RuntimeUtil.runOnUiThread(() -> ShowOnceDialog.newInstance(R.string.push_not_available_title, R.string.push_not_available_text).show(getSupportFragmentManager(), "nopush"));
-				}
-			}
-		}
-
 		this.mainContent = findViewById(R.id.main_content);
 		this.noticeLayout = findViewById(R.id.notice_layout);
 		findViewById(R.id.notice_button_enter_code).setOnClickListener(v -> SMSVerificationDialog.newInstance(userService.getLinkedMobile(true)).show(getSupportFragmentManager(), DIALOG_TAG_VERIFY_CODE));

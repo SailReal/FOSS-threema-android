@@ -283,16 +283,6 @@ abstract public class MediaSelectionBaseActivity extends ThreemaActivity impleme
 		this.mediaAttachAdapter = new MediaAttachAdapter(this, this);
 		this.mediaAttachRecyclerView.setAdapter(mediaAttachAdapter);
 
-		// Wait for search labels to be ready
-		if (ConfigUtils.isPlayServicesInstalled(this)) {
-			this.mediaAttachViewModel.getSuggestionLabels().observe(this, labels -> {
-				if (labels != null && !labels.isEmpty()) {
-					this.labelSuggestions = labels;
-					this.onLabelingComplete();
-				}
-			});
-		}
-
 		ConfigUtils.addIconsToOverflowMenu(this, this.toolbar.getMenu());
 
 		this.rootView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {

@@ -24,18 +24,9 @@ package ch.threema.app;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.text.TextUtils;
-
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.Task;
-import com.google.firebase.iid.FirebaseInstanceId;
-import com.google.firebase.iid.InstanceIdResult;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.FixedJobIntentService;
@@ -63,43 +54,6 @@ public class FcmRegistrationIntentService extends FixedJobIntentService {
 		final boolean clearToken = intent.hasExtra(EXTRA_CLEAR_TOKEN);
 		final boolean withCallback = intent.hasExtra(EXTRA_WITH_CALLBACK);
 		final SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-
-		if (clearToken) {
-			String error = null;
-			try {
-				FirebaseInstanceId.getInstance().deleteInstanceId();
-			} catch (IOException e) {
-				error = "could not delete firebase instance id";
-			}
-			sendRegistrationToServer("", sharedPreferences);
-			signalRegistrationFinished(error, withCallback, clearToken, sharedPreferences);
-		} else {
-			try {
-				FirebaseInstanceId.getInstance().getInstanceId()
-						.addOnCompleteListener(new OnCompleteListener<InstanceIdResult>() {
-							@Override
-							public void onComplete(@NonNull Task<InstanceIdResult> task) {
-								String error = null;
-								if (task.isSuccessful() && task.getResult() != null && !TextUtils.isEmpty(task.getResult().getToken())) {
-									String token = task.getResult().getToken();
-									logger.debug(String.format("Got FCM Registration Token: %s", token));
-									sendRegistrationToServer(token, sharedPreferences);
-								} else {
-									error = task.getException().getMessage();
-								}
-								signalRegistrationFinished(error, withCallback, clearToken, sharedPreferences);
-							}
-						})
-						.addOnFailureListener(new OnFailureListener() {
-							@Override
-							public void onFailure(@NonNull Exception e) {
-								signalRegistrationFinished(e.getMessage(), withCallback, clearToken, sharedPreferences);
-							}
-						});
-			} catch (IllegalStateException e) {
-				signalRegistrationFinished(e.getMessage(), withCallback, clearToken, sharedPreferences);
-			}
-		}
 	}
 
 	private void signalRegistrationFinished(String error, boolean withCallback, boolean clearToken, SharedPreferences sharedPreferences) {

@@ -24,8 +24,6 @@ package ch.threema.app.asynctasks;
 import android.os.AsyncTask;
 import android.widget.Toast;
 
-import com.google.firebase.iid.FirebaseInstanceId;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,7 +75,6 @@ public class DeleteIdentityAsyncTask extends AsyncTask<Void, Void, Exception> {
 
 		try {
 			// clear push token
-			FirebaseInstanceId.getInstance().deleteInstanceId();
 			if (connection != null) {
 				try {
 					connection.setPushToken(ProtocolDefines.PUSHTOKEN_TYPE_GCM, "");

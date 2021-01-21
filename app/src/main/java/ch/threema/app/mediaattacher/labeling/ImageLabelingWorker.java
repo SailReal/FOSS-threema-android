@@ -29,14 +29,6 @@ import android.net.Uri;
 import android.os.SystemClock;
 import android.text.format.DateUtils;
 
-import com.google.android.gms.tasks.Task;
-import com.google.android.gms.tasks.Tasks;
-import com.google.mlkit.vision.common.InputImage;
-import com.google.mlkit.vision.label.ImageLabel;
-import com.google.mlkit.vision.label.ImageLabeler;
-import com.google.mlkit.vision.label.ImageLabeling;
-import com.google.mlkit.vision.label.defaults.ImageLabelerOptions;
-
 import net.sqlcipher.database.SQLiteException;
 
 import org.slf4j.Logger;
@@ -96,9 +88,6 @@ public class ImageLabelingWorker extends Worker {
 	private final PersistentMediaItemsDAO mediaItemsDAO;
 	private final FailedMediaItemsDAO failedMediaDAO;
 
-	// Image labeling
-	private final ImageLabeler labeler;
-
 	// Unique work name
 	public static final String UNIQUE_WORK_NAME = "ImageLabelsOneTime";
 
@@ -145,12 +134,6 @@ public class ImageLabelingWorker extends Worker {
 
 		// Initialize media repository
 		this.repository = new MediaRepository(this.appContext);
-
-		// Create labeler
-		final ImageLabelerOptions options = new ImageLabelerOptions.Builder()
-			.setConfidenceThreshold(0.8f)
-			.build();
-		this.labeler = ImageLabeling.getClient(options);
 
 		// Create executor for database I/O
 		final int numCores = Runtime.getRuntime().availableProcessors();
@@ -287,65 +270,6 @@ public class ImageLabelingWorker extends Worker {
 					imageCounter++;
 				} else {
 					continue;
-				}
-
-				// Query the media items database, maybe we already have labels for this item?
-				final List<String> savedLabels = mediaItemsDAO.getMediaItemLabels(mediaItem.getId());
-				if (savedLabels.isEmpty()) {
-					unlabeledCounter++;
-
-					// Load image from filesystem
-					InputImage image;
-					try {
-						final Uri uri = mediaItem.getUri();
-						// TODO(ANDR-1318): Make this logging less verbose!
-						final String hashedFilename = Utils.byteArrayToSha256HexString(mediaItem.getDisplayName().getBytes(StandardCharsets.UTF_8));
-						logger.info("Loading image {}/{} ({})", this.progress, this.mediaCount, hashedFilename.substring(0, 8));
-						image = InputImage.fromFilePath(this.appContext, uri);
-						logger.info("Loaded image {}/{} ({})", this.progress, this.mediaCount, hashedFilename.substring(0, 8));
-					} catch (Exception e) {
-						logger.warn("Exception, could not generate input image from file path: {}", e.getMessage());
-						logger.info("Unable to load Item " + mediaItem.getId() + ". Adding to list of failed items");
-
-						failedMediaDAO.insert(new FailedMediaItemEntity(mediaItem.getId(), System.currentTimeMillis()));
-						if (e.getCause() != null) {
-							logger.warn("  Caused by: {}", e.getCause().getMessage());
-						}
-						continue;
-					}
-
-					// Launch a labeling task
-					//
-					// Note: By default, the success/failure listeners run on the UI thread.
-					// to prevent this, we pass in an executor.
-					final Task<?> task = labeler.process(image)
-						.addOnSuccessListener(executor, labels -> {
-							ArrayList<String> labelsListIndexes = new ArrayList<>();
-							for (ImageLabel label : labels) {
-								labelsListIndexes.add(String.valueOf(label.getIndex()));
-							}
-							logger.debug("Found {} labels for {}", labelsListIndexes.size(), mediaItem.getDisplayName());
-							mediaItemsDAO.insert(new PersistentMediaItem(mediaItem.getId(), labelsListIndexes));
-						});
-
-					// We're waiting for the task to complete, because processing multiple images in parallel
-					// would fill up the memory with their data.
-					try {
-						Tasks.await(task);
-					} catch (ExecutionException e) {
-						logger.error("Could not get image labels for image", e);
-						return Result.failure();
-					} catch (InterruptedException e) {
-						// An interrupt occurred while waiting for the task to complete.
-						// Restore interrupted state...
-						Thread.currentThread().interrupt();
-						// ...and abort the worker.
-						return Result.failure();
-					}
-
-					if (unlabeledCounter % 20 == 0) {
-						logger.info("Processed {} files…", unlabeledCounter);
-					}
 				}
 			}
 

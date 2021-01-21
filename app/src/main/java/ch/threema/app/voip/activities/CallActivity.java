@@ -1633,9 +1633,6 @@ public class CallActivity extends ThreemaActivity implements
 		final Intent answerIntent = new Intent(getIntent());
 		answerIntent.setClass(getApplicationContext(), VoipCallService.class);
 		ContextCompat.startForegroundService(this, answerIntent);
-		if (ConfigUtils.isPlayServicesInstalled(getApplicationContext())){
-			this.voipStateService.cancelOnWearable(VoipStateService.TYPE_ACTIVITY);
-		}
 	}
 
 	/**

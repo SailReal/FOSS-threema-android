@@ -120,15 +120,6 @@ public class MediaAttachViewModel extends AndroidViewModel {
 			this.initialLoadDone.thenRunAsync(() -> {
 				// Update current media
 				currentMedia.postValue(this.allMedia.getValue());
-
-				SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(application);
-
-				// Check whether search can be shown
-				if (ConfigUtils.isPlayServicesInstalled(this.application) &&
-					sharedPreferences != null &&
-					sharedPreferences.getBoolean(application.getString(R.string.preferences__image_labeling), false)) {
-					this.checkLabelingComplete();
-				}
 			});
 		}
 	}

@@ -60,8 +60,6 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.datatheorem.android.trustkit.TrustKit;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.material.snackbar.BaseTransientBottomBar;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -561,12 +559,6 @@ public class ConfigUtils {
 				notificationManager.notify(APP_RESTART_NOTIFICATION_ID, builder.build());
 			}
 		}
-	}
-
-	public static boolean isPlayServicesInstalled(Context context) {
-		GoogleApiAvailability apiAvailability = com.google.android.gms.common.GoogleApiAvailability.getInstance();
-		int resultCode = apiAvailability.isGooglePlayServicesAvailable(context);
-		return RuntimeUtil.isInTest() || (resultCode == ConnectionResult.SUCCESS);
 	}
 
 	public static boolean checkAvailableMemory(float required) {

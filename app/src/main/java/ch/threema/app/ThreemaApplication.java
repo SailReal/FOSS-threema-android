@@ -860,15 +860,6 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 			connection.addConnectionStateListener((newConnectionState, address) -> {
 				if (newConnectionState == ConnectionState.LOGGEDIN) {
 					final Context appContext = getAppContext();
-					if (ConfigUtils.isPlayServicesInstalled(appContext)) {
-						if (PushUtil.isPushEnabled(appContext)) {
-							if (PushUtil.pushTokenNeedsRefresh(appContext)) {
-								PushUtil.scheduleSendPushTokenToServer(appContext);
-							} else {
-								logger.debug("FCM token is still fresh. No update needed");
-							}
-						}
-					}
 				}
 			});
 
@@ -949,15 +940,6 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 				// schedule identity states / feature masks etc.
 				scheduleIdentityStatesSync(preferenceStore);
 			}).start();
-
-			if (ConfigUtils.isPlayServicesInstalled(getAppContext())) {
-				cleanupOldLabelDatabase();
-
-				if (preferenceStore.getBoolean(getAppContext().getString(R.string.preferences__image_labeling))) {
-					scheduleImageLabelingWork();
-				}
-			}
-
 			initMapbox();
 		} catch (MasterKeyLockedException e) {
 			logger.error("Exception", e);
@@ -1070,86 +1052,6 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 				logger.error("Exception while cleaning up old label database");
 			}
 		}, "OldLabelDatabaseCleanup").start();
-	}
-
-	/**
-	 * Schedule the recurring image labeling task every 24h.
-	 */
-	public static void scheduleImageLabelingWork() {
-		if (!ConfigUtils.isPlayServicesInstalled(context)) {
-			// Image labeling requires play services (for ML Kit)
-			return;
-		}
-		try {
-			final WorkManager workManager = WorkManager.getInstance(context);
-			final NotificationService notificationService = serviceManager.getNotificationService();
-
-			LiveData<List<WorkInfo>> oneTimeLabelingWorkInfo;
-			LiveData<List<WorkInfo>> periodicTimeLabelingWorkInfo;
-
-			// observe worker states and cancel if blocked
-			oneTimeLabelingWorkInfo = workManager.getWorkInfosByTagLiveData(ImageLabelingWorker.UNIQUE_WORK_NAME);
-			periodicTimeLabelingWorkInfo = workManager.getWorkInfosByTagLiveData(WORKER_IMAGE_LABELS_PERIODIC);
-
-			oneTimeLabelingWorkInfo.observe(ProcessLifecycleOwner.get(), workInfos -> {
-				// If there are no matching work infos, do nothing
-				if (workInfos == null || workInfos.isEmpty()) {
-					return;
-				}
-
-				// We only care about the first output status.
-				// Every continuation has only one worker tagged TAG_OUTPUT
-				WorkInfo workInfo = workInfos.get(0);
-				WorkInfo.State state = workInfo.getState();
-				logger.debug("workstate one time label work " + state);
-				if (state == WorkInfo.State.BLOCKED) {
-					logger.info("Cancel image one time labeling work, worker is blocked");
-					workManager.cancelUniqueWork(ImageLabelingWorker.UNIQUE_WORK_NAME);
-					notificationService.showImageLabelingWorkerStuckNotification();
-				}
-			} );
-
-			periodicTimeLabelingWorkInfo.observe(ProcessLifecycleOwner.get(), workInfos -> {
-				// If there are no matching work infos, do nothing
-				if (workInfos == null || workInfos.isEmpty()) {
-					return;
-				}
-
-				// We only care about the first output status.
-				// Every continuation has only one worker tagged TAG_OUTPUT
-				WorkInfo workInfo = workInfos.get(0);
-				WorkInfo.State state = workInfo.getState();
-
-				logger.debug("workstate periodic label work " + state);
-				if (state == WorkInfo.State.BLOCKED) {
-					logger.info("Cancel periodic image labeling work, worker is blocked");
-					workManager.cancelUniqueWork(WORKER_IMAGE_LABELS_PERIODIC);
-					notificationService.showImageLabelingWorkerStuckNotification();
-				}
-			});
-
-
-			// Only run if storage and battery are both not low
-			final Constraints.Builder constraintsLabelingWork = new Constraints.Builder()
-				.setRequiresStorageNotLow(true)
-				.setRequiresBatteryNotLow(true);
-			// On API >= 23, require that the device is idle, in order not to disturb running apps
-			if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-				constraintsLabelingWork.setRequiresDeviceIdle(true);
-			}
-			final Constraints constraints = constraintsLabelingWork.build();
-
-			// Run every 24h
-			final PeriodicWorkRequest.Builder workBuilder = new PeriodicWorkRequest.Builder(ImageLabelingWorker.class, 24, TimeUnit.HOURS)
-				.addTag(WORKER_IMAGE_LABELS_PERIODIC)
-				.setConstraints(constraints);
-			final PeriodicWorkRequest labelingWorkRequest = workBuilder.build();
-
-			logger.info("Scheduling image labeling work");
-			workManager.enqueueUniquePeriodicWork(WORKER_IMAGE_LABELS_PERIODIC, ExistingPeriodicWorkPolicy.REPLACE, labelingWorkRequest);
-		} catch (IllegalStateException e) {
-			logger.error("Unable to initialize WorkManager", e);
-		}
 	}
 
 	private static boolean scheduleWorkSync(PreferenceStore preferenceStore) {

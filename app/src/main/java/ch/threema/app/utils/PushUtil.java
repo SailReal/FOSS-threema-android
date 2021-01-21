@@ -80,24 +80,6 @@ public class PushUtil {
 	 * @param context Context
 	 */
 	public static void scheduleSendPushTokenToServer(Context context) {
-		if (!ConfigUtils.isPlayServicesInstalled(context)) {
-			return;
-		}
-
-		logger.debug("Scheduling FCM token update");
-
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-			JobScheduler jobScheduler = (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
-			if (jobScheduler != null) {
-				ComponentName serviceComponent = new ComponentName(context, FcmRegistrationJobService.class);
-				JobInfo.Builder builder = new JobInfo.Builder(9991, serviceComponent);
-				builder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY);
-				jobScheduler.schedule(builder.build());
-				return;
-			}
-		}
-
-		sendPushTokenToServer(context, false, false);
 	}
 
 	/**
