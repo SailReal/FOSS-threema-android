@@ -721,8 +721,12 @@ public class PreferenceServiceImpl implements PreferenceService {
 		if (interval != null) {
 			switch (interval) {
 				case "0":
-					return 5 * 60 * 1000;
+					return 60 * 1000;
+				case "1":
+					return 2 * 60 * 1000;
 				case "2":
+					return 5 * 60 * 1000;
+				case "3":
 					return AlarmManager.INTERVAL_HALF_HOUR;
 				default:
 					break;

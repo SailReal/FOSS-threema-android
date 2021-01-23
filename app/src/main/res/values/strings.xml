@@ -615,6 +615,8 @@
 	<string name="fontsize_large">Large</string>
 	<string name="fontsize_xlarge">Extra Large</string>
 	<string name="no_app_for_location">No map application found on this device</string>
+	<string name="polling_interval_1">1 minute</string>
+	<string name="polling_interval_2">2 minutes</string>
 	<string name="polling_interval_5">5 minutes</string>
 	<string name="polling_interval_15">15 minutes (default)</string>
 	<string name="polling_interval_30">30 minutes</string>

@@ -150,6 +150,8 @@
 		<item>2</item>
 	</string-array>
 	<string-array name="list_polling_interval">
+		<item>@string/polling_interval_1</item>
+		<item>@string/polling_interval_2</item>
 		<item>@string/polling_interval_5</item>
 		<item>@string/polling_interval_15</item>
 		<item>@string/polling_interval_30</item>
@@ -158,6 +160,8 @@
 		<item>0</item>
 		<item>1</item>
 		<item>2</item>
+		<item>3</item>
+		<item>4</item>
 	</string-array>
 	<string-array name="list_lock_options">
 		<item>@string/lock_option_none</item>

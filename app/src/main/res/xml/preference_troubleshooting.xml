@@ -62,7 +62,7 @@
 			android:title="@string/prefs_title_polling_switch"
 			android:widgetLayout="@layout/preference_switch_layout"/>
 		<DropDownPreference
-			android:defaultValue="1"
+			android:defaultValue="3"
 			android:entries="@array/list_polling_interval"
 			android:entryValues="@array/list_polling_interval_values"
 			android:key="@string/preferences__polling_interval"
