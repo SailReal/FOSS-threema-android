@@ -27,7 +27,6 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.SystemClock;
-import android.text.format.DateUtils;
 
 import net.sqlcipher.database.SQLiteException;
 
@@ -38,18 +37,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
 import androidx.core.content.ContextCompat;
 import androidx.work.ForegroundInfo;
-import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import ch.threema.app.ThreemaApplication;
@@ -228,8 +226,6 @@ public class ImageLabelingWorker extends Worker {
 			int imageCounter = 0;
 			int unlabeledCounter = 0;
 			int skippedCounter = 0;
-			final Timer lockTimer = new Timer();
-			TimerTask timeoutTask = null;
 
 			for (MediaAttachItem mediaItem : allMediaCache) {
 				// Check whether we were stopped
@@ -237,22 +233,6 @@ public class ImageLabelingWorker extends Worker {
 					logger.info("Work was cancelled");
 					break;
 				}
-
-				// Schedule new lock timer for each image to be processed, cancel worker if we get stuck.
-				if (timeoutTask != null) {
-					timeoutTask.cancel();
-				}
-
-				timeoutTask = new TimerTask() {
-					@Override
-					public void run() {
-						logger.debug("cancel image labeling worker, timed out");
-						WorkManager.getInstance(getApplicationContext()).cancelUniqueWork(UNIQUE_WORK_NAME);
-						notificationService.showImageLabelingWorkerStuckNotification();
-					}
-				};
-				lockTimer.purge();
-				lockTimer.schedule(timeoutTask, 30 * DateUtils.SECOND_IN_MILLIS);
 
 				// Update notification
 				notificationService.updateImageLabelingProgressNotification(this.progress, this.mediaCount);
@@ -272,9 +252,6 @@ public class ImageLabelingWorker extends Worker {
 					continue;
 				}
 			}
-
-			timeoutTask.cancel();
-			lockTimer.purge();
 
 			// Update notification
 			notificationService.updateImageLabelingProgressNotification(this.progress, this.mediaCount);
