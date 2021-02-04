@@ -783,7 +783,7 @@ public class NotificationServiceImpl implements NotificationService {
 			}
 
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-				builder.addInvisibleAction(new NotificationCompat.Action.Builder(R.drawable.ic_mark_read, context.getString(R.string.mark_read), markReadPendingIntent)
+				builder.addInvisibleAction(new NotificationCompat.Action.Builder(R.drawable.ic_mark_read_bitmap, context.getString(R.string.mark_read), markReadPendingIntent)
 					.setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
 					.setShowsUserInterface(false).build());
 			}
@@ -1520,7 +1520,7 @@ public class NotificationServiceImpl implements NotificationService {
 
 		NotificationCompat.Builder builder =
 			new NotificationBuilderWrapper(context, NOTIFICATION_CHANNEL_NOTICE, null)
-					.setSmallIcon(m.getType() == ServerMessageModel.Type.ALERT ? android.R.drawable.stat_sys_warning : android.R.drawable.stat_notify_error)
+					.setSmallIcon(R.drawable.ic_error_red_24dp)
 					.setTicker(this.context.getString(R.string.server_message_title))
 					.setContentTitle(this.context.getString(R.string.app_name))
 					.setContentText(this.context.getString(R.string.server_message_title))
@@ -1603,7 +1603,7 @@ public class NotificationServiceImpl implements NotificationService {
 
 			NotificationCompat.Builder builder =
 				new NotificationBuilderWrapper(context, NOTIFICATION_CHANNEL_ALERT, null)
-						.setSmallIcon(android.R.drawable.stat_sys_warning)
+						.setSmallIcon(R.drawable.ic_error_red_24dp)
 						.setTicker(content)
 						.setPriority(NotificationCompat.PRIORITY_HIGH)
 						.setCategory(NotificationCompat.CATEGORY_ERROR)
@@ -1631,7 +1631,7 @@ public class NotificationServiceImpl implements NotificationService {
 
 			NotificationCompat.Builder builder =
 					new NotificationBuilderWrapper(context, NOTIFICATION_CHANNEL_ALERT, null)
-							.setSmallIcon(android.R.drawable.stat_sys_warning)
+							.setSmallIcon(R.drawable.ic_error_red_24dp)
 							.setTicker(content)
 							.setLocalOnly(true)
 							.setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -1658,7 +1658,7 @@ public class NotificationServiceImpl implements NotificationService {
 		NotificationCompat.Builder builder =
 				new NotificationBuilderWrapper(context, NOTIFICATION_CHANNEL_WORK_SYNC, null)
 				.setSound(null)
-				.setSmallIcon(android.R.drawable.stat_notify_sync)
+				.setSmallIcon(R.drawable.ic_sync_notification)
 				.setContentTitle(this.context.getString(R.string.wizard1_sync_work))
 				.setProgress(0, 0, true)
 				.setPriority(Notification.PRIORITY_LOW)
