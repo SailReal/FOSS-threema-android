@@ -2129,12 +2129,14 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 			if (this.peerConnectionClient != null) {
 				try (CloseableLock ignored = this.videoQualityNegotiation.read()) {
 					synchronized (this.capturingLock) {
+						// Start capturing
 						final VideoCapturer videoCapturer = this.peerConnectionClient.startCapturing(
 							this.commonVideoQualityProfile
 						);
 						this.isCapturing = true;
+
+						// Query cameras
 						if (videoCapturer instanceof CameraVideoCapturer) {
-							// query cameras
 							final VideoContext videoContext = this.voipStateService.getVideoContext();
 							if (videoContext != null) {
 								Pair<String,String> primaryCameraNames = VideoCapturerUtil.getPrimaryCameraNames(getAppContext());
@@ -2143,6 +2145,8 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 								videoContext.setCameraVideoCapturer((CameraVideoCapturer) videoCapturer);
 							}
 						}
+
+						// Notify listeners
 						VoipUtil.sendVoipBroadcast(getAppContext(), CallActivity.ACTION_OUTGOING_VIDEO_STARTED);
 					}
 				}
