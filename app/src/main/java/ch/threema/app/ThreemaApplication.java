@@ -80,7 +80,6 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
-import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ProcessLifecycleOwner;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.multidex.MultiDexApplication;
@@ -108,7 +107,6 @@ import ch.threema.app.listeners.ServerMessageListener;
 import ch.threema.app.listeners.SynchronizeContactsListener;
 import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.managers.ServiceManager;
-import ch.threema.app.mediaattacher.labeling.ImageLabelingWorker;
 import ch.threema.app.messagereceiver.ContactMessageReceiver;
 import ch.threema.app.messagereceiver.GroupMessageReceiver;
 import ch.threema.app.messagereceiver.MessageReceiver;
@@ -236,7 +234,6 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 	public static final int WORK_SYNC_NOTIFICATION_ID = 735;
 	public static final int NEW_SYNCED_CONTACTS_NOTIFICATION_ID = 736;
 	public static final int WEB_RESUME_FAILED_NOTIFICATION_ID = 737;
-	public static final int IMAGE_LABELING_NOTIFICATION_ID = 738;
 	public static final int PASSPHRASE_SERVICE_NOTIFICATION_ID = 587;
 	public static final int INCOMING_CALL_NOTIFICATION_ID = 800;
 
@@ -261,7 +258,6 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 	private static final int WORK_SYNC_JOB_ID = 63339;
 
 	private static final String WORKER_IDENTITY_STATES_PERIODIC_NAME = "IdentityStates";
-	public static final String WORKER_IMAGE_LABELS_PERIODIC = "ImageLabelsPeriodic";
 
 	private static Context context;
 
@@ -294,6 +290,31 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 	private void logStackTrace(StackTraceElement[] stackTraceElements) {
 		for (int i = 1; i < stackTraceElements.length; i++) {
 			logger.info("\tat " + stackTraceElements[i]);
+		}
+	}
+
+	private static void showNotesGroupNotice(GroupModel groupModel, int previousMemberCount) throws ThreemaException {
+		GroupService groupService = serviceManager.getGroupService();
+		MessageService messageService = serviceManager.getMessageService();
+
+		if (groupService != null && messageService != null) {
+			String notice = null;
+
+			if (previousMemberCount != groupService.countMembers(groupModel) && groupService.isGroupOwner(groupModel)) {
+				if (groupService.isNotesGroup(groupModel)) {
+					if (previousMemberCount == 2 || previousMemberCount == 0) {
+						notice = serviceManager.getContext().getString(R.string.status_create_notes);
+					}
+				} else {
+					if (previousMemberCount == 1) {
+						notice = serviceManager.getContext().getString(R.string.status_create_notes_off);
+					}
+				}
+
+				if (notice != null) {
+					messageService.createStatusMessage(notice, groupService.createReceiver(groupModel));
+				}
+			}
 		}
 	}
 
@@ -1023,29 +1044,6 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 		return false;
 	}
 
-	/**
-	 * Clean up any pre-existing labeling database. This will only exist on devices
-	 * of private beta testers and can be removed in the final release.
-	 */
-	@Deprecated
-	public static void cleanupOldLabelDatabase() {
-		new Thread(() -> {
-			try {
-				final File databasePath = getAppContext().getDatabasePath("media_items_database");
-				if (databasePath.exists() && databasePath.isFile()) {
-					logger.info("Removing stale media_items_database file");
-					if (!databasePath.delete()) {
-						logger.warn("Could not remove stale media_items_database file");
-					}
-				} else {
-					logger.debug("No stale media_items_database file found");
-				}
-			} catch (Exception e) {
-				logger.error("Exception while cleaning up old label database");
-			}
-		}, "OldLabelDatabaseCleanup").start();
-	}
-
 	private static boolean scheduleWorkSync(PreferenceStore preferenceStore) {
 		if (!ConfigUtils.isWorkBuild()) {
 			return false;
@@ -1089,6 +1087,7 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 					serviceManager.getMessageService().createStatusMessage(
 							serviceManager.getContext().getString(R.string.status_create_group),
 							serviceManager.getGroupService().createReceiver(newGroupModel));
+					showNotesGroupNotice(newGroupModel, 0);
 				} catch (ThreemaException e) {
 					logger.error("Exception", e);
 				}
@@ -1098,7 +1097,6 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 			public void onRename(GroupModel groupModel) {
 				try {
 					serviceManager.getConversationService().refresh(groupModel);
-
 					serviceManager.getMessageService().createStatusMessage(
 							serviceManager.getContext().getString(R.string.status_rename_group, groupModel.getName()),
 							serviceManager.getGroupService().createReceiver(groupModel));
@@ -1127,23 +1125,16 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 
 					final MessageReceiver receiver = serviceManager.getGroupService().createReceiver(groupModel);
 
-					//remove all ballots please!
 					serviceManager.getBallotService().remove(receiver);
-
 					serviceManager.getConversationService().removed(groupModel);
-
-//					serviceManager.getConversationService().notifyChanges(true);
-
 					serviceManager.getNotificationService().cancel(new GroupMessageReceiver(groupModel, null, null, null, null));
-
-
 				} catch (ThreemaException e) {
 					logger.error("Exception", e);
 				}
 			}
 
 			@Override
-			public void onNewMember(GroupModel group, String newIdentity) {
+			public void onNewMember(GroupModel group, String newIdentity, int previousMemberCount) {
 				String memberName = newIdentity;
 				ContactModel contactModel;
 				try {
@@ -1164,37 +1155,46 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 								serviceManager.getContext().getString(R.string.status_group_new_member, memberName),
 								receiver);
 
-						//send all open ballots to the new group member
-						BallotService ballotService = serviceManager.getBallotService();
-						if (ballotService != null) {
-							List<BallotModel> openBallots = ballotService.getBallots(new BallotService.BallotFilter() {
-								@Override
-								public MessageReceiver getReceiver() {
-									return receiver;
-								}
+						if ((!myIdentity.equals(group.getCreatorIdentity())) || previousMemberCount > 1) {
+							//send all open ballots to the new group member
+							BallotService ballotService = serviceManager.getBallotService();
+							if (ballotService != null) {
+								List<BallotModel> openBallots = ballotService.getBallots(new BallotService.BallotFilter() {
+									@Override
+									public MessageReceiver getReceiver() {
+										return receiver;
+									}
 
-								@Override
-								public BallotModel.State[] getStates() {
-									return new BallotModel.State[]{BallotModel.State.OPEN};
-								}
+									@Override
+									public BallotModel.State[] getStates() {
+										return new BallotModel.State[]{BallotModel.State.OPEN};
+									}
 
-								@Override
-								public boolean filter(BallotModel ballotModel) {
-									//only my ballots please
-									return ballotModel.getCreatorIdentity().equals(myIdentity);
-								}
-							});
+									@Override
+									public boolean filter(BallotModel ballotModel) {
+										//only my ballots please
+										return ballotModel.getCreatorIdentity().equals(myIdentity);
+									}
+								});
 
-							for (BallotModel ballotModel : openBallots) {
-								ballotService.publish(receiver, ballotModel, null, newIdentity);
+								for (BallotModel ballotModel : openBallots) {
+									ballotService.publish(receiver, ballotModel, null, newIdentity);
+								}
+							}
+						}
+
+						if (myIdentity.equals(group.getCreatorIdentity())) {
+							if (previousMemberCount == 1) {
+								showNotesGroupNotice(group, previousMemberCount);
 							}
 						}
 					}
+
 				} catch (ThreemaException x) {
 					logger.error("Exception", x);
 				}
 
-				//reset avatar to recreate him!
+				//reset avatar to recreate it!
 				try {
 					serviceManager.getAvatarCacheService()
 							.reset(group);
@@ -1204,7 +1204,7 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 			}
 
 			@Override
-			public void onMemberLeave(GroupModel group, String identity) {
+			public void onMemberLeave(GroupModel group, String identity, int previousMemberCount) {
 				String memberName = identity;
 				ContactModel contactModel;
 				try {
@@ -1221,10 +1221,7 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 							serviceManager.getContext().getString(R.string.status_group_member_left, memberName),
 							receiver);
 
-					//remove group ballots from user
-
-					//send all open ballots to the new group member
-
+					showNotesGroupNotice(group, previousMemberCount);
 
 					BallotService ballotService = serviceManager.getBallotService();
 					ballotService.removeVotes(receiver, identity);
@@ -1234,7 +1231,7 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 			}
 
 			@Override
-			public void onMemberKicked(GroupModel group, String identity) {
+			public void onMemberKicked(GroupModel group, String identity, int previousMemberCount) {
 				final String myIdentity = serviceManager.getUserService().getIdentity();
 
 				if (myIdentity != null && myIdentity.equals(identity)) {
@@ -1262,10 +1259,7 @@ public class ThreemaApplication extends MultiDexApplication implements DefaultLi
 							serviceManager.getContext().getString(R.string.status_group_member_kicked, memberName),
 							receiver);
 
-					//remove group ballots from user
-
-					//send all open ballots to the new group member
-
+					showNotesGroupNotice(group, previousMemberCount);
 
 					BallotService ballotService = serviceManager.getBallotService();
 					ballotService.removeVotes(receiver, identity);

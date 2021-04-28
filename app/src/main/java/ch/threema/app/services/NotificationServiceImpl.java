@@ -64,7 +64,6 @@ import java.util.List;
 import java.util.Map;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -582,7 +581,7 @@ public class NotificationServiceImpl implements NotificationService {
 								.bigPicture(latestThumbnail)
 								.setSummaryText(conversationNotification.getMessage()));
 					}
-					addConversationNotificationActions(builder, replyPendingIntent, ackPendingIntent, decPendingIntent, markReadPendingIntent, conversationNotification, numberOfNotificationsForCurrentChat, unreadConversationsCount, uniqueId, newestGroup);
+					addConversationNotificationActions(builder, replyPendingIntent, ackPendingIntent, markReadPendingIntent, conversationNotification, numberOfNotificationsForCurrentChat, unreadConversationsCount, uniqueId, newestGroup);
 					addWearableExtender(builder, newestGroup, ackPendingIntent, decPendingIntent, replyPendingIntent, markReadPendingIntent, timestamp, latestThumbnail, numberOfNotificationsForCurrentChat, singleMessageText != null ? singleMessageText.toString() : "", uniqueId);
 				}
 
@@ -650,7 +649,7 @@ public class NotificationServiceImpl implements NotificationService {
 
 				if (this.preferenceService.isShowMessagePreview() && !hiddenChatsListService.has(uniqueId)) {
 					addConversationNotificationPreviews(builder, latestThumbnail, singleMessageText, contentTitle, conversationNotification.getMessage(), unreadMessagesCount);
-					addConversationNotificationActions(builder, replyPendingIntent, ackPendingIntent, decPendingIntent, markReadPendingIntent, conversationNotification, unreadMessagesCount, unreadConversationsCount, uniqueId, newestGroup);
+					addConversationNotificationActions(builder, replyPendingIntent, ackPendingIntent, markReadPendingIntent, conversationNotification, unreadMessagesCount, unreadConversationsCount, uniqueId, newestGroup);
 				}
 
 				if (unreadMessagesCount > 1 && inboxStyle != null) {
@@ -760,7 +759,7 @@ public class NotificationServiceImpl implements NotificationService {
 		}
 	}
 
-	private void addConversationNotificationActions(NotificationCompat.Builder builder, PendingIntent replyPendingIntent, PendingIntent ackPendingIntent, PendingIntent decPendingIntent, PendingIntent markReadPendingIntent, ConversationNotification conversationNotification, int unreadMessagesCount, int unreadGroupsCount, String uniqueId, ConversationNotificationGroup newestGroup) {
+	private void addConversationNotificationActions(NotificationCompat.Builder builder, PendingIntent replyPendingIntent, PendingIntent ackPendingIntent, PendingIntent markReadPendingIntent, ConversationNotification conversationNotification, int unreadMessagesCount, int unreadGroupsCount, String uniqueId, ConversationNotificationGroup newestGroup) {
 		// add action buttons
 		if (preferenceService.isShowMessagePreview() && !hiddenChatsListService.has(uniqueId)) {
 			if (ConfigUtils.canDoGroupedNotifications()) {
@@ -810,12 +809,11 @@ public class NotificationServiceImpl implements NotificationService {
 					}
 				} else {
 					if (unreadMessagesCount == 1) {
-						builder
-							.addAction(new NotificationCompat.Action.Builder(R.drawable.ic_thumb_up_white_24dp, context.getString(R.string.acknowledge), ackPendingIntent)
-								.setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_THUMBS_UP).build())
-							.addAction(new NotificationCompat.Action.Builder(R.drawable.ic_thumb_down_white_24dp, context.getString(R.string.decline), decPendingIntent)
-								.setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_THUMBS_DOWN).build());
+						builder.addAction(new NotificationCompat.Action.Builder(R.drawable.ic_thumb_up_white_24dp, context.getString(R.string.acknowledge), ackPendingIntent)
+								.setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_THUMBS_UP).build());
 					}
+					builder.addAction(new NotificationCompat.Action.Builder(R.drawable.ic_mark_read, context.getString(R.string.mark_read_short), markReadPendingIntent)
+						.setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ).build());
 				}
 			}
 		}
@@ -1851,49 +1849,5 @@ public class NotificationServiceImpl implements NotificationService {
 
 	public void resetConversationNotifications(){
 		conversationNotifications.clear();
-	}
-
-	/**
-	 * @see NotificationService#createImageLabelingProgressNotification()
-	 */
-	@Override
-	public @Nullable NotificationCompat.Builder createImageLabelingProgressNotification() {
-		return null;
-	}
-
-	/**
-	 * @see NotificationService#updateImageLabelingProgressNotification(int, int)
-	 */
-	@Override
-	public void updateImageLabelingProgressNotification(int currentProgress, int maxProgress) {
-		final NotificationCompat.Builder builder = this.createImageLabelingProgressNotification();
-		if (builder != null) {
-			builder.setProgress(maxProgress, currentProgress, false);
-			builder.setContentText(currentProgress + "/" + maxProgress);
-			this.notificationManager.notify(ThreemaApplication.IMAGE_LABELING_NOTIFICATION_ID, builder.build());
-		}
-	}
-
-	@Override
-	public void cancelImageLabelingProgressNotification() {
-		this.notificationManager.cancel(ThreemaApplication.IMAGE_LABELING_NOTIFICATION_ID);
-	}
-
-	@Override
-	public void showImageLabelingWorkerStuckNotification() {
-		String msg = context.getString(R.string.image_labeling_stuck_error);
-
-		NotificationCompat.Builder builder =
-			new NotificationBuilderWrapper(this.context, NOTIFICATION_CHANNEL_IMAGE_LABELING, null)
-				.setSmallIcon(R.drawable.ic_image_labeling)
-				.setTicker(msg)
-				.setLocalOnly(true)
-				.setPriority(NotificationCompat.PRIORITY_HIGH)
-				.setCategory(NotificationCompat.CATEGORY_ERROR)
-				.setColor(this.context.getResources().getColor(R.color.material_red))
-				.setContentTitle(this.context.getString(R.string.app_name))
-				.setContentText(msg)
-				.setStyle(new NotificationCompat.BigTextStyle().bigText(msg));
-		this.notify(ThreemaApplication.WEB_RESUME_FAILED_NOTIFICATION_ID, builder);
 	}
 }
